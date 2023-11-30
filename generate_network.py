@@ -1,7 +1,5 @@
 import networkx as nx
-from random import sample
-from math import sqrt
-import matplotlib.pyplot as plt
+
 
 def calculate_cost(weights, edge_cost_function, node_cost_function):
     n = len(weights)
@@ -10,6 +8,7 @@ def calculate_cost(weights, edge_cost_function, node_cost_function):
     node_cost = node_cost_function((n * (n - 1)) // 2)
     return edge_cost + node_cost
 
+
 def get_adjacency_coordinates(n, num_vals):
     row, skip, = 0, 1
     for coordinate in range(num_vals):
@@ -17,6 +16,7 @@ def get_adjacency_coordinates(n, num_vals):
             row += 1
             skip += row + 1
         yield (coordinate + skip) // n, (coordinate + skip) % n
+
 
 def generate_graph(n, weights, nodes):
     G = nx.empty_graph()
@@ -27,6 +27,7 @@ def generate_graph(n, weights, nodes):
         G.edges[u, v]['weight'] = weights[i]
 
     return G
+
 
 def get_time_and_loss_of_function(n, weights):
     G = generate_graph(n, weights, None)

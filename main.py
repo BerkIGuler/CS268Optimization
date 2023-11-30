@@ -1,8 +1,9 @@
 from neural_network_model import Node, combine
 import torch
-from torch.utils.data import DataLoader, SubsetRandomSampler
+from torch.utils.data import DataLoader
 from torchvision import datasets
 from torchvision.transforms import ToTensor
+
 
 # Download training data from open datasets.
 training_data = datasets.FashionMNIST(
