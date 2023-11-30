@@ -10,10 +10,11 @@ class NeuralNetwork(nn.Module):
         super().__init__()
         self.flatten = nn.Flatten()
         dims = [28 * 28, 512, 512, 10]
-        layers = [None for _ in range(len(dims) * 2 - 2)]
-        for i in range(len(dims) - 1):
+        layers = [None for _ in range(len(dims) * 2 - 3)]
+        for i in range(len(dims) - 2):
             layers[i * 2] = nn.Linear(dims[i], dims[i + 1])
             layers[(i * 2) + 1] = nn.ReLU()
+        layers[-1] = nn.Linear(dims[-2], dims[-1])
 
         self.linear_relu_stack = nn.Sequential(*layers)
 

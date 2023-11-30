@@ -27,7 +27,6 @@ node_training_data = torch.utils.data.random_split(training_data, [1 / num_nodes
 node_test_data = torch.utils.data.random_split(test_data, [1 / num_nodes] * num_nodes)
 
 # Create data loaders.
-k = 6000
 train_dataloader = [DataLoader(training_data, batch_size=batch_size) for training_data in node_training_data]
 test_dataloader = [DataLoader(test_data, batch_size=batch_size) for test_data in node_test_data]
 
@@ -35,10 +34,12 @@ total_train_dataloader = DataLoader(training_data, batch_size=batch_size)
 total_test_dataloader = DataLoader(test_data, batch_size=batch_size)
 
 nodes = [Node(train_dataloader[i], test_dataloader[i]) for i in range(num_nodes)]
+
+original_model_sd = nodes[0].model.state_dict()
 for node in nodes:
+    node.model.load_state_dict(original_model_sd)
     node.train(5)
     node.test_on_data(total_test_dataloader, True)
-
 
 node = Node(total_train_dataloader, total_test_dataloader, combine([node.model for node in nodes]))
 node.test(True)
