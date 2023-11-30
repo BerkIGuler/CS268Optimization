@@ -3,16 +3,16 @@ from torch import nn
 
 
 class NeuralNetwork(nn.Module):
-    def __init__(self):
+    """Fully connected NN with 2 layers and relu"""
+    def __init__(self, in_dim=28*28, out_dim=10):
         super().__init__()
         self.flatten = nn.Flatten()
-        dims = [28 * 28, 512, 512, 10]
+        dims = [in_dim, 512, 512, out_dim]
         layers = [None for _ in range(len(dims) * 2 - 3)]
         for i in range(len(dims) - 2):
             layers[i * 2] = nn.Linear(dims[i], dims[i + 1])
             layers[(i * 2) + 1] = nn.ReLU()
         layers[-1] = nn.Linear(dims[-2], dims[-1])
-
         self.linear_relu_stack = nn.Sequential(*layers)
 
     def forward(self, x):
@@ -20,8 +20,9 @@ class NeuralNetwork(nn.Module):
         logits = self.linear_relu_stack(x)
         return logits
 
+
 class Node:
-    def __init__(self, training_data, test_data, model = None):
+    def __init__(self, training_data, test_data, model=None):
         self.device = (
             "cuda"
             if torch.cuda.is_available()
@@ -79,6 +80,7 @@ class Node:
             # print(f"Epoch {t+1}\n-------------------------------")
             self.training_step()
             self.test()
+
 
 def combine(models):
     sd_result = models[0].state_dict()

@@ -21,7 +21,7 @@ def get_adjacency_coordinates(n, num_vals):
 def generate_graph(n, weights, nodes):
     G = nx.empty_graph()
     for i in nodes:
-        G.add_node(i, network = nodes[i])
+        G.add_node(i, network=nodes[i])
 
     for i, (u, v) in enumerate(get_adjacency_coordinates(n, len(weights))):
         G.edges[u, v]['weight'] = weights[i]
