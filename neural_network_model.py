@@ -39,26 +39,26 @@ class Node:
     def training_step(self):
         size = len(self.training_data.dataset)
         self.model.train()
-        for batch, (X, y) in enumerate(self.training_data):
+        for batch_num, (X, y) in enumerate(self.training_data):
+            self.optimizer.zero_grad()
             X, y = X.to(self.device), y.to(self.device)
 
-            # Compute prediction error
+            # Compute prediction loss
             pred = self.model(X)
             loss = self.loss_fn(pred, y)
 
             # Backpropagation
             loss.backward()
             self.optimizer.step()
-            self.optimizer.zero_grad()
 
-            if batch % 100 == 0:
-                loss, current = loss.item(), (batch + 1) * len(X)
-                # print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
+            if batch_num % 100 == 0:
+                loss, current = loss.item(), (batch_num + 1) * len(X)
+                print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
 
-    def test(self, print_test = False):
+    def test(self, print_test=False):
         self.test_on_data(self.test_data, print_test)
 
-    def test_on_data(self, test_data, print_test = False):
+    def test_on_data(self, test_data, print_test=False):
         size = len(test_data.dataset)
         num_batches = len(test_data)
         self.model.eval()
@@ -74,7 +74,6 @@ class Node:
         if print_test:
             print(f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
 
-
     def train(self, epochs):
         for t in range(epochs):
             # print(f"Epoch {t+1}\n-------------------------------")
@@ -83,6 +82,7 @@ class Node:
 
 
 def combine(models):
+    """returns a new model with weights averaged over models"""
     sd_result = models[0].state_dict()
     for model in models[1:]:
         sd_inter = model.state_dict()
