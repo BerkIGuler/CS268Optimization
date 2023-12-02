@@ -14,11 +14,16 @@ class Node:
         )
 
         self.model = NeuralNetwork().to(self.device) if model is None else model.to(self.device)
+
         self.training_data, self.test_data = training_data, test_data
+        self.train_dataloader_iterator = iter(self.training_data)
+        self.total_num_iter = 0
+
         self.loss_fn = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=1e-3)
 
-    def training_step(self):
+    def training_step(self, report_every_n_batch=100):
+        """Trains the model for one epoch"""
         size = len(self.training_data.dataset)
         self.model.train()
         for batch_num, (X, y) in enumerate(self.training_data):
@@ -33,9 +38,39 @@ class Node:
             loss.backward()
             self.optimizer.step()
 
-            if batch_num % 100 == 0:
+            if batch_num % report_every_n_batch == 0:
                 loss, current = loss.item(), (batch_num + 1) * len(X)
                 print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
+
+    def train_n_iter(self, n=5, report_every_n_batch=100):
+        """trains the model for n iters"""
+        num_batches = len(self.training_data)
+        try:
+            current_batch = next(self.train_dataloader_iterator)
+        except StopIteration:
+            self.train_dataloader_iterator = self.training_data
+            current_batch = next(self.train_dataloader_iterator)
+
+        self.model.train()
+        current_iter_no = 0
+
+        while current_iter_no < n:
+            self.optimizer.zero_grad()
+            X, y = current_batch
+            X, y = X.to(self.device), y.to(self.device)
+
+            # Compute prediction loss
+            pred = self.model(X)
+            loss = self.loss_fn(pred, y)
+
+            # Backpropagation
+            loss.backward()
+            self.optimizer.step()
+            self.total_num_iter += 1
+            current_iter_no += 1
+            if self.total_num_iter % report_every_n_batch == 0:
+                loss, current = loss.item(), (self.total_num_iter + 1)
+                print(f"loss: {loss:>7f}  [{self.total_num_iter:>5d}/{num_batches:>5d}]")
 
     def test(self, print_test=False):
         self.test_on_data(self.test_data, print_test)
@@ -58,7 +93,6 @@ class Node:
 
     def train(self, epochs):
         for t in range(epochs):
-            # print(f"Epoch {t+1}\n-------------------------------")
             self.training_step()
             self.test()
 
