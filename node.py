@@ -1,24 +1,6 @@
 import torch
 from torch import nn
-
-
-class NeuralNetwork(nn.Module):
-    """Fully connected NN with 2 layers and relu"""
-    def __init__(self, in_dim=28*28, out_dim=10):
-        super().__init__()
-        self.flatten = nn.Flatten()
-        dims = [in_dim, 512, 512, out_dim]
-        layers = [None for _ in range(len(dims) * 2 - 3)]
-        for i in range(len(dims) - 2):
-            layers[i * 2] = nn.Linear(dims[i], dims[i + 1])
-            layers[(i * 2) + 1] = nn.ReLU()
-        layers[-1] = nn.Linear(dims[-2], dims[-1])
-        self.linear_relu_stack = nn.Sequential(*layers)
-
-    def forward(self, x):
-        x = self.flatten(x)
-        logits = self.linear_relu_stack(x)
-        return logits
+from models import NeuralNetwork
 
 
 class Node:
@@ -31,7 +13,7 @@ class Node:
             else "cpu"
         )
 
-        self.model = NeuralNetwork().to(self.device) if not model else model.to(self.device)
+        self.model = NeuralNetwork().to(self.device) if model is None else model.to(self.device)
         self.training_data, self.test_data = training_data, test_data
         self.loss_fn = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=1e-3)
@@ -81,7 +63,7 @@ class Node:
             self.test()
 
 
-def combine(models):
+def combine(models, target_model=None):
     """returns a new model with weights averaged over models"""
     sd_result = models[0].state_dict()
     for model in models[1:]:
@@ -92,7 +74,11 @@ def combine(models):
     for key in sd_result:
         sd_result[key] /= len(models)
 
-    result = NeuralNetwork()
+    if target_model is not None:
+        result = target_model
+    else:
+        result = NeuralNetwork()
+
     result.load_state_dict(sd_result)
 
     return result
