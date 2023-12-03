@@ -1,28 +1,34 @@
-from node import Node, combine, DecentralizedNetwork
+from node import Node, DecentralizedNetwork
 from models import NeuralNetwork
+from topologies import get_weight_matrix
 from dataset import Data
 import time
-import numpy as np
+from config import get_config_from_cli
 
 
-batch_size = 4
-num_nodes = 80
-epochs = 1
-max_training_iters = 500
-num_comm_rounds = 1000
-init_with_same_weights = False
-model = NeuralNetwork()
+args = get_config_from_cli()
+batch_size = 32
+num_nodes = 10
+weight_matrix = get_weight_matrix(num_nodes, args.topology)
+num_rounds = 9000
 
 
 data = Data(batch_size=batch_size, num_nodes=num_nodes)
-# split train data equally between nodes
+# iid split of train data
 train_dataloaders = data.partition_data()
 total_train_dataloader, test_dataloader = data.total_data()
 
-nodes = [Node(train_dataloaders[i], test_dataloader, model=model) for i in range(num_nodes)]
-weight_matrix = np.array([1/num_nodes] * num_nodes**2).reshape(num_nodes, num_nodes)
+nodes = [Node(train_dataloaders[i], test_dataloader, i, model=NeuralNetwork()) for i in range(num_nodes)]
 
+tic = time.time()
 dl_network = DecentralizedNetwork(nodes=nodes, weight_matrix=weight_matrix)
-for _ in range(num_comm_rounds):
-    dl_network.train_local_nodes()
+for curr_round in range(num_rounds):
+    dl_network.train_local_nodes(
+        batch_per_iter=args.batch_per_iter,
+        report_every_n=args.report_every_n)
     dl_network.communicate()
+    if (curr_round + 1) % args.report_every_n == 0:
+        stats = dl_network.evaluate(verbose=True)
+
+
+print(f"Elapsed Time: {(time.time() - tic):.2f} seconds")

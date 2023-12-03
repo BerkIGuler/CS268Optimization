@@ -6,7 +6,9 @@ import copy
 
 
 class Node:
-    def __init__(self, training_data, test_data, model=None):
+    """Class to simulate a node in DL"""
+    def __init__(self, training_data, test_data, node_id, model=None):
+        self.node_id = node_id
         self.device = (
             "cuda"
             if torch.cuda.is_available()
@@ -16,7 +18,6 @@ class Node:
         )
 
         self.model = NeuralNetwork().to(self.device) if model is None else model.to(self.device)
-
         self.training_data, self.test_data = training_data, test_data
         self.train_dataloader_iterator = iter(self.training_data)
         self.total_num_iter = 0
@@ -24,7 +25,7 @@ class Node:
         self.loss_fn = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=1e-3)
 
-    def training_step(self, report_every_n_batch=100):
+    def training_step(self, report_every_n=100):
         """Trains the model for one epoch"""
         size = len(self.training_data.dataset)
         self.model.train()
@@ -40,11 +41,11 @@ class Node:
             loss.backward()
             self.optimizer.step()
 
-            if batch_num % report_every_n_batch == 0:
-                loss, current = loss.item(), (batch_num + 1) * len(X)
-                print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
+            if batch_num % report_every_n == 0:
+                loss, current_batch_no = loss.item(), (batch_num + 1)
+                print(f"node: {self.node_id} batch_loss: {loss:>7f}  {current_batch_no:>5d}")
 
-    def train_n_iter(self, n=5, report_every_n_batch=20):
+    def train_n_iter(self, n=5, report_every_n=20):
         """trains the model for n iters"""
         num_batches = len(self.training_data)
         try:
@@ -70,14 +71,16 @@ class Node:
             self.optimizer.step()
             self.total_num_iter += 1
             current_iter_no += 1
-            if self.total_num_iter % report_every_n_batch == 0:
-                loss, current = loss.item(), (self.total_num_iter + 1)
-                print(f"loss: {loss:>7f}  [{self.total_num_iter:>5d}/{num_batches:>5d}]")
+            if self.total_num_iter % report_every_n == 0:
+                loss = loss.item()
+                print(f"node: {self.node_id}\t batch_loss: {loss:>7f}\t  current_batch: {self.total_num_iter:>5d}")
 
     def test(self, print_test=False):
-        self.test_on_data(self.test_data, print_test)
+        """returns accuracy and average batch loss on the test set"""
+        return self.test_on_data(self.test_data, print_test)
 
     def test_on_data(self, test_data, print_test=False):
+        """returns accuracy and average batch loss on the test set"""
         size = len(test_data.dataset)
         num_batches = len(test_data)
         self.model.eval()
@@ -88,29 +91,32 @@ class Node:
                 pred = self.model(X)
                 test_loss += self.loss_fn(pred, y).item()
                 correct += (pred.argmax(1) == y).type(torch.float).sum().item()
-        test_loss /= num_batches
-        correct /= size
+        avg_batch_loss = test_loss / num_batches
+        accuracy = correct / size
         if print_test:
-            print(f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
+            print(f"Test Error: \n Accuracy: {(100*accuracy):>0.1f}%, Avg loss: {avg_batch_loss:>8f} \n")
+        return accuracy, avg_batch_loss
 
     def train(self, epochs):
+        """trains node for n epochs and then tests"""
         for t in range(epochs):
             self.training_step()
             self.test()
 
 
 class DecentralizedNetwork:
+    """A class for DSGD over nodes"""
     def __init__(self, weight_matrix, nodes):
         self.topo = self._init_topo(weight_matrix, nodes)
         self.round = 0
 
-    def train_local_nodes(self):
+    def train_local_nodes(self, batch_per_iter=5, report_every_n=10):
         """trains all nodes for one round"""
         for node in self.topo:
-            self.topo.nodes[node]["node"].train_n_iter(1)
+            self.topo.nodes[node]["node"].train_n_iter(n=batch_per_iter, report_every_n=report_every_n)
         self.round += 1
-        if self.round % 100 == 0:
-            print(f"round {self.round}")
+        if self.round % report_every_n == 0:
+            print(f"round {self.round} completed on all nodes\n")
 
     def communicate(self):
         """performs model aggregation between neighbouring nodes"""
@@ -128,6 +134,17 @@ class DecentralizedNetwork:
                         self_model[key] += nbr_model[key] * nbr_w
             self.topo.nodes[node]["node"].model.load_state_dict(self_model)
 
+    def evaluate(self, verbose=False):
+        """returns accuracy and loss for each node in a dict"""
+        stats_dict = {}
+        for node in self.topo:
+            current_node = self.topo.nodes[node]["node"]
+            curr_acc, curr_loss = current_node.test()
+            stats_dict[node] = {"test accuracy": curr_acc, "average batch loss on test": curr_loss}
+        if verbose is True:
+            print(stats_dict)
+        return stats_dict
+
     @staticmethod
     def _init_topo(weight_matrix, computing_nodes):
         """return networkx digraph with weight matrix and trainable nodes"""
@@ -143,24 +160,3 @@ class DecentralizedNetwork:
             copied_state_dict = copy.deepcopy(topology.nodes[node_idx]["node"].model.state_dict())
             copied_state_dicts.append(copied_state_dict)
         return copied_state_dicts
-
-
-def combine(models, weights, target_model=None):
-    """returns a new model with weights averaged over models"""
-    sd_result = models[0].state_dict()
-    for model in models[1:]:
-        sd_inter = model.state_dict()
-        for key in sd_result:
-            sd_result[key] += sd_inter[key]
-
-    for key in sd_result:
-        sd_result[key] /= len(models)
-
-    if target_model is not None:
-        result = target_model
-    else:
-        result = NeuralNetwork()
-
-    result.load_state_dict(sd_result)
-
-    return result
