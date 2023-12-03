@@ -83,4 +83,3 @@ def complete_gr():
         total_nbrs += len(nbrs)
 
     print(total_nbrs / 100)
-
