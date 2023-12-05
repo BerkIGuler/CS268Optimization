@@ -47,7 +47,6 @@ class Node:
 
     def train_n_iter(self, n=5, report_every_n=20):
         """trains the model for n iters"""
-        num_batches = len(self.training_data)
         try:
             current_batch = next(self.train_dataloader_iterator)
         except StopIteration:

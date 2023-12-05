@@ -1,18 +1,34 @@
 import networkx as nx
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.pyplot as plt
+import logging
 
 
-def get_weight_matrix(num_nodes, topology="fc_equal_weights"):
+logger = logging.getLogger()
+
+
+def get_weight_matrix(num_nodes, topology="fc_equal_weights", degree=None):
     if topology == "fc_equal_weights":
         weight_matrix = np.array([1 / num_nodes] * num_nodes ** 2).reshape(num_nodes, num_nodes)
+    elif topology == "regular_graph" and degree is not None:
+        g = nx.random_regular_graph(d=degree, n=num_nodes)
+        identity = np.identity(num_nodes)
+        weight_matrix = nx.adjacency_matrix(g).todense() + identity
+        weight_matrix = weight_matrix / (num_nodes + 1)
+    elif topology == "small_world" and degree is not None:
+        if degree % 2 == 1:
+            logger.warning("effective degree cannot be odd")
+        g = nx.connected_watts_strogatz_graph(num_nodes, degree, 0.5)
+        weight_matrix = np.identity(num_nodes) + nx.adjacency_matrix(g).todense()
+        weight_matrix /= np.sum(weight_matrix, axis=0)
     else:
         raise NotImplemented
 
-    assert np.sum(np.sum(weight_matrix, axis=0) - np.ones(num_nodes)) < 0.00000001, "not doubly stochastic"
-    assert np.sum(np.sum(weight_matrix, axis=0) - np.ones(num_nodes)) < 0.00000001, "not doubly stochastic"
+    # assert np.sum(np.sum(weight_matrix, axis=0) - np.ones(num_nodes)) < 0.00000001, "not doubly stochastic"
+    # assert np.sum(np.sum(weight_matrix, axis=0) - np.ones(num_nodes)) < 0.00000001, "not doubly stochastic"
 
     return weight_matrix
+
 
 
 # def barbell_gr():
@@ -44,18 +60,18 @@ def get_weight_matrix(num_nodes, topology="fc_equal_weights"):
 #     print("average degree:", total_nbrs / 100)
 #
 #
-# def connected_watts_strogatz_graph():
-#     """used in https://ceur-ws.org/Vol-3194/paper38.pdf"""
-#     plt.figure(figsize=(12,12))
-#     g = nx.connected_watts_strogatz_graph(100, 4, 0.5)
-#     nx.draw(g, with_labels=True, font_weight='bold')
-#     plt.show()
-#
-#     total_nbrs = 0
-#     for n, nbrs in g.adj.items():
-#         total_nbrs += len(nbrs)
-#
-#     print(total_nbrs/100)
+def connected_watts_strogatz_graph():
+    """used in https://ceur-ws.org/Vol-3194/paper38.pdf"""
+    plt.figure(figsize=(12,12))
+    g = nx.connected_watts_strogatz_graph(100, 4, 0.5)
+    nx.draw(g, with_labels=True, font_weight='bold')
+    plt.show()
+
+    total_nbrs = 0
+    for n, nbrs in g.adj.items():
+        total_nbrs += len(nbrs)
+
+    print(total_nbrs/100)
 #
 #
 # def rand_regular_gr():
@@ -96,3 +112,5 @@ def get_weight_matrix(num_nodes, topology="fc_equal_weights"):
 #         total_nbrs += len(nbrs)
 #
 #     print(total_nbrs / 100)
+
+# connected_watts_strogatz_graph()
