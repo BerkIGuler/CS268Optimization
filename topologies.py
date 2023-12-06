@@ -1,26 +1,62 @@
 import networkx as nx
 import numpy as np
-import matplotlib.pyplot as plt
 import logging
 
 
 logger = logging.getLogger()
 
 
-def get_weight_matrix(num_nodes, topology="fc_equal_weights", degree=None):
-    if topology == "fc_equal_weights":
+def _get_avg_nbrs(g):
+    total_nbrs = 0
+
+    for n, nbrs in g.adj.items():
+        total_nbrs += len(nbrs)
+    avg_nbrs = total_nbrs / len(g)
+
+    return avg_nbrs
+
+
+def connected_erdos_random_gr(num_nodes, degree, max_trials=100000):
+    found_connected = False
+    increment = 0.00001
+    p = 0.01
+    for _ in range(max_trials):
+        g = nx.erdos_renyi_graph(num_nodes, p)
+        if nx.is_connected(g) and abs(_get_avg_nbrs(g) - degree) < 0.01:
+            found_connected = True
+            break
+        p += increment
+
+    if found_connected is False:
+        raise RuntimeError("Could not generate a connected graph with desired average degree")
+
+    return g
+
+
+def get_weight_matrix(num_nodes, topology="fc", degree=None):
+    if topology == "fc":
         weight_matrix = np.array([1 / num_nodes] * num_nodes ** 2).reshape(num_nodes, num_nodes)
-    elif topology == "regular_graph" and degree is not None:
+    elif topology == "regular" and degree is not None:
         g = nx.random_regular_graph(d=degree, n=num_nodes)
         identity = np.identity(num_nodes)
         weight_matrix = nx.adjacency_matrix(g).todense() + identity
-        weight_matrix = weight_matrix / (num_nodes + 1)
+        weight_matrix = weight_matrix / (degree + 1)
     elif topology == "small_world" and degree is not None:
         if degree % 2 == 1:
             logger.warning("effective degree cannot be odd")
         g = nx.connected_watts_strogatz_graph(num_nodes, degree, 0.5)
         weight_matrix = np.identity(num_nodes) + nx.adjacency_matrix(g).todense()
         weight_matrix /= np.sum(weight_matrix, axis=0)
+    elif topology == "erdos" and degree is not None:
+        g = connected_erdos_random_gr(num_nodes, degree)
+        wm = nx.adjacency_matrix(g).todense() + np.identity(num_nodes)
+        weight_matrix = wm / np.sum(wm, axis=0)
+    elif topology == "barabasi" and degree is not None:
+        logger.warning("graph degree is approximate for barabasi albert")
+        g = nx.barabasi_albert_graph(num_nodes, int(degree / 2))
+        logger.warning(f"Desired Degree: {degree}, actual: {_get_avg_nbrs(g)}")
+        wm = nx.adjacency_matrix(g).todense() + np.identity(num_nodes)
+        weight_matrix = wm / np.sum(wm, axis=0)
     else:
         raise NotImplemented
 
@@ -28,89 +64,3 @@ def get_weight_matrix(num_nodes, topology="fc_equal_weights", degree=None):
     # assert np.sum(np.sum(weight_matrix, axis=0) - np.ones(num_nodes)) < 0.00000001, "not doubly stochastic"
 
     return weight_matrix
-
-
-
-# def barbell_gr():
-#     plt.figure(figsize=(12,12))
-#     g = nx.barbell_graph(49, 2)
-#     nx.draw(g, with_labels=True, font_weight='bold')
-#     plt.show()
-#
-#
-# def connected_erdos_random_gr(max_trials=1000):
-#     found_connected = False
-#     for _ in range(max_trials):
-#         g = nx.erdos_renyi_graph(100, 0.03)
-#         if nx.is_connected(g):
-#             found_connected = True
-#             break
-#
-#     if found_connected is False:
-#         raise RuntimeError("Could not generate a connected graph")
-#
-#     plt.figure(figsize=(12, 12))
-#     nx.draw(g, with_labels=True, font_weight='bold')
-#     plt.show()
-#
-#     total_nbrs = 0
-#     for n, nbrs in g.adj.items():
-#         total_nbrs += len(nbrs)
-#
-#     print("average degree:", total_nbrs / 100)
-#
-#
-def connected_watts_strogatz_graph():
-    """used in https://ceur-ws.org/Vol-3194/paper38.pdf"""
-    plt.figure(figsize=(12,12))
-    g = nx.connected_watts_strogatz_graph(100, 4, 0.5)
-    nx.draw(g, with_labels=True, font_weight='bold')
-    plt.show()
-
-    total_nbrs = 0
-    for n, nbrs in g.adj.items():
-        total_nbrs += len(nbrs)
-
-    print(total_nbrs/100)
-#
-#
-# def rand_regular_gr():
-#     plt.figure(figsize=(12, 12))
-#     g = nx.random_regular_graph(3, 100)
-#     nx.draw(g, with_labels=True, font_weight='bold')
-#     plt.show()
-#
-#     total_nbrs = 0
-#     for n, nbrs in g.adj.items():
-#         total_nbrs += len(nbrs)
-#
-#     print(total_nbrs / 100)
-#
-#
-# def barabasi_albert_gr():
-#     """used in https://ceur-ws.org/Vol-3194/paper38.pdf"""
-#     plt.figure(figsize=(12, 12))
-#     g = nx.barabasi_albert_graph(100, 2)
-#     nx.draw(g, with_labels=True, font_weight='bold')
-#     plt.show()
-#
-#     total_nbrs = 0
-#     for n, nbrs in g.adj.items():
-#         total_nbrs += len(nbrs)
-#
-#     print(total_nbrs / 100)
-#
-#
-# def complete_gr():
-#     plt.figure(figsize=(12, 12))
-#     g = nx.complete_graph(100)
-#     nx.draw(g, with_labels=True, font_weight='bold')
-#     plt.show()
-#
-#     total_nbrs = 0
-#     for n, nbrs in g.adj.items():
-#         total_nbrs += len(nbrs)
-#
-#     print(total_nbrs / 100)
-
-# connected_watts_strogatz_graph()

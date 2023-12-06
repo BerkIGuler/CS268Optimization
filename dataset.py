@@ -32,10 +32,21 @@ class Data:
 
     def partition_data(self):
         n, b_size = self.num_nodes, self.batch_size
-        train_par = random_split(self.training_data, [1 / n] * n)
+        train_par = random_split(
+            self.training_data,
+            self._get_partition_sizes(self.training_data, self.num_nodes)
+        )
 
         train = [DataLoader(data, batch_size=b_size) for data in train_par]
         return train
+
+    @staticmethod
+    def _get_partition_sizes(training_data, num_nodes):
+        num_data = len(training_data)
+        sizes = [int(num_data / num_nodes) for _ in range(num_nodes - 1)]
+        sizes.append(num_data - sum(sizes))
+        assert sum(sizes) == num_data, "partition error, size mismatch"
+        return sizes
 
     def total_data(self):
         train = DataLoader(self.training_data, batch_size=self.batch_size)
