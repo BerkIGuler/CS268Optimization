@@ -14,7 +14,7 @@ def get_config_from_cli():
         "--report_every_n", "-v",
         type=int,
         help="report test set result every n batch per node",
-        default=250
+        default=50
     )
     parser.add_argument(
         "--batch_per_iter", "-b",

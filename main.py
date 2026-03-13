@@ -11,7 +11,7 @@ args = get_config_from_cli()
 batch_size = 32
 num_nodes = args.num_nodes
 weight_matrix = get_weight_matrix(num_nodes, args.topology, args.degree)
-num_rounds = 250
+num_rounds = args.rounds
 
 data = Data(batch_size=batch_size, num_nodes=num_nodes)
 # iid split of train data
@@ -33,7 +33,7 @@ for curr_round in range(num_rounds):
         batch_per_iter=args.batch_per_iter,
         report_every_n=args.report_every_n)
     dl_network.communicate()
-    if (curr_round + 1) % args.report_every_n == 0:
+    if curr_round % args.report_every_n == 0:
         stats = dl_network.evaluate(verbose=True)
         stats["round"] = curr_round + 1
         results.append(stats)
